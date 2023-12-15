@@ -1,0 +1,356 @@
+---
+title: "Variables instrumentales: aplicación con la EPH"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+library(readxl)
+```
+
+## 1) Preprocesamiento de datos
+
+```{r}
+eph_individual<- read_excel("C:/Users/faust/Desktop/2023/Maestría/EnfoqueEstadisticodelAprendizaje/Trabajo_Final/datasets/usu_individual_T223.xlsx")
+```
+
+```{r}
+eph_individual %>% head(5)
+```
+
+```{r}
+eph_hogares<- read_excel("C:/Users/faust/Desktop/2023/Maestría/EnfoqueEstadisticodelAprendizaje/Trabajo_Final/datasets/usu_hogar_T223.xlsx")
+```
+
+```{r}
+eph_hogares %>% head(5)
+```
+
+```{r}
+eph_individual<- eph_individual %>% select(CODUSU, NRO_HOGAR, CH03, PP08D1, CH06, 
+                                           CH10, CH13, CH12, CH14)
+```
+
+CODUSU: Código para distinguir viviendas, permite aparearlas con Hogares y Personas. Además permite hacer el
+seguimiento a través de los trimestres.
+
+NRO_HOGAR: Código para distinguir Hogares, permite aparearlos con Personas.
+
+CH03: Relación de parentesco. 
+
+PP08D1: Ingreso de la ocupación principal de los asalariados. 
+
+CH06: Años cumplidos. 
+
+CH10: ¿Asiste o asistió a algún establecimiento educativo? (colegio, escuela, universidad).
+
+CH12: ¿Cuál es el nivel más alto que cursa o cursó?
+
+CH13: ¿Finalizó ese nivel?
+
+CH14: ¿Cuál fue el último año que aprobó?
+
+
+```{r}
+# AÑOS DE EDUCACIÓN 
+# Jardín/preescolar cuenta como 1 
+eph_individual <- eph_individual %>% 
+                        mutate(educacion = case_when(CH10 == 3 ~ 0, # Nunca asistió 
+                                   CH06 < 2 ~ 0, # Menores de dos años 
+                                   CH12 == 9 ~ 0,  # Educación especial 
+                                   CH13 == 2 & CH12 == 1 ~ 0 # # Jardín/preescolar 
+                                   )) 
+ 
+# Primaria 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 2 & CH14 == 0 ~ 1, 
+    CH13 == 2 & CH12 == 2 & CH14 == 1 ~ 2, 
+    CH13 == 2 & CH12 == 2 & CH14 == 2 ~ 3, 
+    CH13 == 2 & CH12 == 2 & CH14 == 3 ~ 4, 
+    CH13 == 2 & CH12 == 2 & CH14 == 4 ~ 5, 
+    CH13 == 2 & CH12 == 2 & CH14 == 5 ~ 6, 
+    CH13 == 2 & CH12 == 2 & CH14 == 6 ~ 7, 
+    TRUE ~ educacion 
+  )) 
+ 
+# EGB 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 3 & CH14 == 0 ~ 1, 
+    CH13 == 2 & CH12 == 3 & CH14 == 1 ~ 2, 
+    CH13 == 2 & CH12 == 3 & CH14 == 2 ~ 3, 
+    CH13 == 2 & CH12 == 3 & CH14 == 3 ~ 4, 
+    CH13== 2 & CH12 == 3 & CH14 == 4 ~ 5, 
+    CH13 == 2 & CH12 == 3 & CH14 == 5 ~ 6, 
+    CH13 == 2 & CH12 == 3 & CH14 == 6 ~ 7, 
+    CH13 == 2 & CH12 == 3 & CH14 == 7 ~ 8, 
+    CH13 == 2 & CH12 == 3 & CH14 == 8 ~ 9, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Secundaria 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 4 & CH14 == 0 ~ 8, 
+    CH13 == 2 & CH12 == 4 & CH14 == 1 ~ 9, 
+    CH13 == 2 & CH12 == 4 & CH14 == 2 ~ 10, 
+    CH13 == 2 & CH12 == 4 & CH14 == 3 ~ 11, 
+    CH13 == 2 & CH12 == 4 & CH14 == 4 ~ 12, 
+    CH13 == 2 & CH12 == 4 & CH14 == 5 ~ 13, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Resto de niveles educativos 
+ 
+# Polimodal 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 5 & CH14 == 0 ~ 10, 
+    CH13 == 2 & CH12 == 5 & CH14 == 1 ~ 11, 
+    CH13 == 2 & CH12 == 5 & CH14 == 2 ~ 12, 
+    CH13 == 2 & CH12 == 5 & CH14 == 3 ~ 13, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Terciario 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 6 & CH14 == 0 ~ 13, 
+    CH13 == 2 & CH12 == 6 & CH14 == 1 ~ 14, 
+    CH13 == 2 & CH12 == 6 & CH14 >= 2 & CH14 < 98 ~ 15, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Universitario 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 7 & CH14 == 0 ~ 13, 
+    CH13 == 2 & CH12 == 7 & CH14 == 1 ~ 14, 
+    CH13 == 2 & CH12 == 7 & CH14 == 2 ~ 15, 
+    CH13 == 2 & CH12 == 7 & CH14 == 3 ~ 16, 
+    CH13 == 2 & CH12 == 7 & CH14 == 4 ~ 17, 
+    CH13 == 2 & CH12 == 7 & CH14 >= 5 & CH14 < 98 ~ 18, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Posgrado 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 2 & CH12 == 8 & CH14 == 0 ~ 19, 
+    CH13 == 2 & CH12 == 8 & CH14 == 1 ~ 20, 
+    CH13 == 2 & CH12 == 8 & CH14 == 2 ~ 21, 
+    CH13 == 2 & CH12 == 8 & CH14 >= 3 & CH14 < 98 ~ 22, 
+    TRUE ~ educacion 
+  )) 
+ 
+# Completaron el nivel 
+eph_individual <- eph_individual %>% 
+  mutate(educacion = case_when( 
+    CH13 == 1 & CH12 == 1 ~ 1, 
+    CH13 == 1 & CH12 == 2 ~ 8, 
+    CH13 == 1 & CH12 == 3 ~ 11, 
+    CH13 == 1 & (CH12 == 4 | CH12 == 5) ~ 13, 
+    CH13 == 1 & CH12 == 6 ~ 16, 
+    CH13 == 1 & CH12 == 7 ~ 19, 
+    CH13 == 1 & CH12 == 8 ~ 23, 
+    TRUE ~ educacion 
+  )) 
+```
+
+
+```{r}
+eph_individual<- eph_individual %>% filter(!is.na(educacion))
+```
+
+
+```{r}
+eph_hogares<- eph_hogares %>% select(CODUSU, NRO_HOGAR, IV2, IX_TOT) %>% mutate(personas_por_amb= IX_TOT/IV2)
+```
+IV2:ambientes que tiene la vivienda. 
+
+IX_TOT:cantidad de miembros del hogar. 
+
+```{r}
+eph_cons<- eph_individual %>% left_join(., eph_hogares, by= c("CODUSU", "NRO_HOGAR"))
+```
+
+
+```{r}
+eph_padre<- eph_cons %>% filter(CH03== 06) 
+```
+
+
+```{r}
+eph_hijo<- eph_cons %>% filter(CH03== 03 & PP08D1> 0)
+```
+
+
+```{r}
+eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0)
+```
+
+
+```{r}
+eph<- eph_hijo %>% left_join(., eph_jefe, by= c("CODUSU", "NRO_HOGAR"))
+```
+
+educacion.y va a ser la educación del padre 
+
+```{r}
+eph<- eph %>% left_join(., eph_padre, by= c("CODUSU", "NRO_HOGAR"))
+```
+
+educacion va a ser la educación del padre
+
+```{r}
+eph <- eph %>% filter(!is.na(educacion.y) | !is.na(educacion))
+```
+
+```{r}
+eph<- eph %>% mutate(educacion= replace_na(educacion, 0)) %>% mutate(educacion.y=
+                                                                       replace_na(educacion.y, 0))
+```
+
+```{r}
+eph<- eph %>% mutate(educ_padre= educacion.y + educacion)
+```
+
+```{r}
+eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_padre) 
+```
+
+```{r}
+eph<- eph %>% rename(ingreso= PP08D1.x) %>% rename(personas_por_amb= personas_por_amb.x) %>% rename (educ= educacion.x)
+```
+
+
+## 2) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
+
+```{r}
+hist(eph$ingreso)
+```
+
+
+```{r}
+hist(log(eph$ingreso))
+```
+
+
+```{r}
+modelo_1<- lm(log(ingreso) ~ educ, data= eph)
+```
+
+```{r}
+summary(modelo_1)
+```
+
+```{r}
+plot(modelo_1)
+```
+
+
+## 3) Modelo 2: regresión con la educación del padre como variable instrumental. MC2E. 
+
+```{r}
+hist(eph$educ)
+```
+
+```{r}
+hist(eph$educ_padre)
+```
+
+```{r}
+library(corrr)
+
+cor.test(eph$educ, eph$educ_padre, method="spearman")
+```
+
+La correlación da significativa pero baja; se considera a este instrumento un instrumento débil. 
+
+```{r}
+library(ivreg)
+```
+
+```{r}
+modelo_2 <- ivreg(log(ingreso)~ educ | educ_padre , data = eph)
+```
+
+```{r}
+summary(modelo_2)
+```
+
+```{r}
+plot(modelo_2)
+```
+
+## 3.1) Modelo 2.1: regresión con la educación del padre como variable instrumental. MC2E en forma manual. 
+
+```{r}
+modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
+```
+
+```{r}
+summary(modelo_2_paso_1)
+```
+
+```{r}
+educ_predichos<- predict(modelo_2_paso_1)
+```
+
+```{r}
+modelo_2_paso_2<- lm(log(ingreso) ~ valores_predichos, data= eph)
+```
+
+```{r}
+summary(modelo_2_paso_2)
+```
+
+
+## 4) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
+
+```{r}
+hist(eph$personas_por_amb)
+```
+
+```{r}
+library(corrr)
+
+cor.test(eph$educ, eph$personas_por_amb, method="spearman")
+```
+
+La correlación dio negativa y significativa, pero, nuevamente, baja; este también es un instrumento débil. 
+
+```{r}
+modelo_3 <- ivreg(log(ingreso)~ educ | personas_por_amb , data = eph)
+```
+
+```{r}
+summary(modelo_3)
+```
+
+```{r}
+plot(modelo_3)
+```
+
+## 5) Comparación de modelos
+
+```{r}
+library(broom)
+```
+
+```{r}
+modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3)
+
+```
+
+
+```{r}
+map_df(modelos, tidy, .id= "modelo")
+
+```
+
