@@ -254,7 +254,7 @@ summary(modelo_1)
 plot(modelo_1)
 ```
 
-## 3.1) Modelo 2.1: regresión con la educación de la padre como variable instrumental. MC2E en forma manual. 
+## 3.1) Modelo 2.1: regresión con la educación del padre como variable instrumental. MC2E en forma manual. 
 
 ```{r}
 modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
@@ -277,7 +277,7 @@ summary(modelo_2_paso_2)
 ```
 
 
-## 3) Modelo 2: regresión con la educación de la padre como variable instrumental. MC2E. 
+## 3) Modelo 2: regresión con la educación del padre como variable instrumental. MC2E. 
 
 ```{r}
 hist(eph$educ)
@@ -339,6 +339,7 @@ summary(modelo_3)
 plot(modelo_3)
 ```
 
+## 5) Modelo 4: regresión con combinación lineal de instrumentos como variable instrumental
 
 ```{r}
 modelo_4 <- ivreg(log(ingreso)~ educ | personas_por_amb + educ_padre  , data = eph)
@@ -354,7 +355,7 @@ plot(modelo_4)
 ```
 
 
-## 5) Comparación de modelos
+## 6) Comparación de modelos
 
 ```{r}
 library(broom)
