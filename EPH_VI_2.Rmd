@@ -230,23 +230,7 @@ eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.
 eph<- eph %>% rename(ingreso= PP08D1.x) %>% rename(personas_por_amb= personas_por_amb.x) %>% rename (educ= educacion.x) %>% rename(COMPONENTE= COMPONENTE.x)
 ```
 
-## 2) Divido en train y test 
-
-
-```{r}
-set.seed(1)
-sample <- sample(c(TRUE, FALSE), nrow(eph), replace=TRUE, prob=c(0.7,0.3))
-eph_train  <- eph[sample, ]
-eph_test   <- eph[!sample, ]
-
-```
-
-```{r}
-eph<- eph_train
-```
-
-
-## 3) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
+## 2) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
 
 ```{r}
 hist(eph$ingreso)
@@ -270,7 +254,7 @@ summary(modelo_1)
 plot(modelo_1)
 ```
 
-## 4.1) Modelo 2.1: regresión con la educación de la padre como variable instrumental. MC2E en forma manual. 
+## 3.1) Modelo 2.1: regresión con la educación de la padre como variable instrumental. MC2E en forma manual. 
 
 ```{r}
 modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
@@ -293,7 +277,7 @@ summary(modelo_2_paso_2)
 ```
 
 
-## 4) Modelo 2: regresión con la educación de la padre como variable instrumental. MC2E. 
+## 3) Modelo 2: regresión con la educación de la padre como variable instrumental. MC2E. 
 
 ```{r}
 hist(eph$educ)
@@ -329,7 +313,7 @@ plot(modelo_2)
 
 
 
-## 5) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
+## 4) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
 
 ```{r}
 hist(eph$personas_por_amb)
@@ -370,7 +354,7 @@ plot(modelo_4)
 ```
 
 
-## 6) Comparación de modelos
+## 5) Comparación de modelos
 
 ```{r}
 library(broom)
