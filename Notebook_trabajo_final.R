@@ -1,61 +1,33 @@
----
-title: "Variables instrumentales: aplicación con la EPH"
-output: html_notebook
----
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(tidyverse)
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(readxl)
-```
 
-## 1) Preprocesamiento de datos
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_individual<- read_excel("C:/Users/faust/Desktop/2023/Maestría/EnfoqueEstadisticodelAprendizaje/Trabajo_Final/datasets/usu_individual_T223.xlsx")
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph_individual %>% head(5)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph_hogares<- read_excel("C:/Users/faust/Desktop/2023/Maestría/EnfoqueEstadisticodelAprendizaje/Trabajo_Final/datasets/usu_hogar_T223.xlsx")
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph_hogares %>% head(5)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph_individual<- eph_individual %>% select(CODUSU, NRO_HOGAR, CH03, PP08D1, CH06, 
                                            CH10, CH13, CH12, CH14)
-```
-
-CODUSU: Código para distinguir viviendas, permite aparearlas con Hogares y Personas. Además permite hacer el
-seguimiento a través de los trimestres.
-
-NRO_HOGAR: Código para distinguir Hogares, permite aparearlos con Personas.
-
-CH03: Relación de parentesco. 
-
-PP08D1: Ingreso de la ocupación principal de los asalariados. 
-
-CH06: Años cumplidos. 
-
-CH10: ¿Asiste o asistió a algún establecimiento educativo? (colegio, escuela, universidad).
-
-CH12: ¿Cuál es el nivel más alto que cursa o cursó?
-
-CH13: ¿Finalizó ese nivel?
-
-CH14: ¿Cuál fue el último año que aprobó?
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 # AÑOS DE EDUCACIÓN 
 # Jardín/preescolar cuenta como 1 
 eph_individual <- eph_individual %>% 
@@ -160,196 +132,163 @@ eph_individual <- eph_individual %>%
     CH13 == 1 & CH12 == 8 ~ 23, 
     TRUE ~ educacion 
   )) 
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_individual<- eph_individual %>% filter(!is.na(educacion))
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_hogares<- eph_hogares %>% select(CODUSU, NRO_HOGAR, IV2, IX_TOT) %>% mutate(personas_por_amb= IX_TOT/IV2)
-```
-IV2:ambientes que tiene la vivienda. 
 
-IX_TOT:cantidad de miembros del hogar. 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_cons<- eph_individual %>% left_join(., eph_hogares, by= c("CODUSU", "NRO_HOGAR"))
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_padre<- eph_cons %>% filter(CH03== 06) 
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_hijo<- eph_cons %>% filter(CH03== 03 & PP08D1> 0)
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0)
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph_hijo %>% left_join(., eph_jefe, by= c("CODUSU", "NRO_HOGAR"))
-```
 
-educacion.y va a ser la educación del padre 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph %>% left_join(., eph_padre, by= c("CODUSU", "NRO_HOGAR"))
-```
 
-educacion va a ser la educación del padre
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 eph <- eph %>% filter(!is.na(educacion.y) | !is.na(educacion))
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph %>% mutate(educacion= replace_na(educacion, 0)) %>% mutate(educacion.y=
                                                                        replace_na(educacion.y, 0))
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph %>% mutate(educ_padre= educacion.y + educacion)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_padre) 
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 eph<- eph %>% rename(ingreso= PP08D1.x) %>% rename(personas_por_amb= personas_por_amb.x) %>% rename (educ= educacion.x)
-```
 
 
-## 2) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 hist(eph$ingreso)
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 hist(log(eph$ingreso))
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 modelo_1<- lm(log(ingreso) ~ educ, data= eph)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(modelo_1)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 plot(modelo_1)
-```
 
 
-## 3) Modelo 2: regresión con la educación del padre como variable instrumental. MC2E. 
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 hist(eph$educ)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 hist(eph$educ_padre)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 library(corrr)
 
 cor.test(eph$educ, eph$educ_padre, method="spearman")
-```
 
-La correlación da significativa pero baja; se considera a este instrumento un instrumento débil. 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(ivreg)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 modelo_2 <- ivreg(log(ingreso)~ educ | educ_padre , data = eph)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(modelo_2)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 plot(modelo_2)
-```
 
-## 3.1) Modelo 2.1: regresión con la educación del padre como variable instrumental. MC2E en forma manual. 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(modelo_2_paso_1)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 educ_predichos<- predict(modelo_2_paso_1)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 modelo_2_paso_2<- lm(log(ingreso) ~ valores_predichos, data= eph)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(modelo_2_paso_2)
-```
 
 
-## 4) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 hist(eph$personas_por_amb)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 library(corrr)
 
 cor.test(eph$educ, eph$personas_por_amb, method="spearman")
-```
 
-La correlación dio negativa y significativa, pero, nuevamente, baja; este también es un instrumento débil. 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 modelo_3 <- ivreg(log(ingreso)~ educ | personas_por_amb , data = eph)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(modelo_3)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 plot(modelo_3)
-```
 
-## 5) Comparación de modelos
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(broom)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3)
 
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 map_df(modelos, tidy, .id= "modelo")
 
-```
+

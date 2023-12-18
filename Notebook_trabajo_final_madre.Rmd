@@ -32,7 +32,7 @@ eph_hogares %>% head(5)
 
 ```{r}
 eph_individual<- eph_individual %>% select(CODUSU, NRO_HOGAR, CH03, PP08D1, CH06, 
-                                           CH10, CH13, CH12, CH14)
+                                           CH10, CH13, CH12, CH14, CH04)
 ```
 
 CODUSU: Código para distinguir viviendas, permite aparearlas con Hogares y Personas. Además permite hacer el
@@ -181,7 +181,7 @@ eph_cons<- eph_individual %>% left_join(., eph_hogares, by= c("CODUSU", "NRO_HOG
 
 
 ```{r}
-eph_padre<- eph_cons %>% filter(CH03== 06) 
+eph_madre<- eph_cons %>% filter(CH03== 06 & CH04== 2) 
 ```
 
 
@@ -191,7 +191,7 @@ eph_hijo<- eph_cons %>% filter(CH03== 03 & PP08D1> 0)
 
 
 ```{r}
-eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0)
+eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0 & CH04== 2 )
 ```
 
 
@@ -199,13 +199,13 @@ eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0)
 eph<- eph_hijo %>% left_join(., eph_jefe, by= c("CODUSU", "NRO_HOGAR"))
 ```
 
-educacion.y va a ser la educación del padre 
+educacion.y va a ser la educación de la madre 
 
 ```{r}
-eph<- eph %>% left_join(., eph_padre, by= c("CODUSU", "NRO_HOGAR"))
+eph<- eph %>% left_join(., eph_madre, by= c("CODUSU", "NRO_HOGAR"))
 ```
 
-educacion va a ser la educación del padre
+educacion va a ser la educación de la madre
 
 ```{r}
 eph <- eph %>% filter(!is.na(educacion.y) | !is.na(educacion))
@@ -217,11 +217,11 @@ eph<- eph %>% mutate(educacion= replace_na(educacion, 0)) %>% mutate(educacion.y
 ```
 
 ```{r}
-eph<- eph %>% mutate(educ_padre= educacion.y + educacion)
+eph<- eph %>% mutate(educ_madre= educacion.y + educacion)
 ```
 
 ```{r}
-eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_padre) 
+eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_madre) 
 ```
 
 ```{r}
@@ -253,21 +253,20 @@ summary(modelo_1)
 plot(modelo_1)
 ```
 
-
-## 3) Modelo 2: regresión con la educación del padre como variable instrumental. MC2E. 
+## 3) Modelo 2: regresión con la educación de la madre como variable instrumental. MC2E. 
 
 ```{r}
 hist(eph$educ)
 ```
 
 ```{r}
-hist(eph$educ_padre)
+hist(eph$educ_madre)
 ```
 
 ```{r}
 library(corrr)
 
-cor.test(eph$educ, eph$educ_padre, method="spearman")
+cor.test(eph$educ, eph$educ_madre, method="spearman")
 ```
 
 La correlación da significativa pero baja; se considera a este instrumento un instrumento débil. 
@@ -277,7 +276,7 @@ library(ivreg)
 ```
 
 ```{r}
-modelo_2 <- ivreg(log(ingreso)~ educ | educ_padre , data = eph)
+modelo_2 <- ivreg(log(ingreso)~ educ | educ_madre , data = eph)
 ```
 
 ```{r}
@@ -288,10 +287,11 @@ summary(modelo_2)
 plot(modelo_2)
 ```
 
-## 3.1) Modelo 2.1: regresión con la educación del padre como variable instrumental. MC2E en forma manual. 
+
+## 3.1) Modelo 2.1: regresión con la educación de la madre como variable instrumental. MC2E en forma manual. 
 
 ```{r}
-modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
+modelo_2_paso_1<- lm(educ~ educ_madre, data=eph)
 ```
 
 ```{r}
@@ -303,7 +303,7 @@ educ_predichos<- predict(modelo_2_paso_1)
 ```
 
 ```{r}
-modelo_2_paso_2<- lm(log(ingreso) ~ valores_predichos, data= eph)
+modelo_2_paso_2<- lm(log(ingreso) ~ educ_predichos, data= eph)
 ```
 
 ```{r}
@@ -337,6 +337,26 @@ summary(modelo_3)
 plot(modelo_3)
 ```
 
+```{r}
+library(whitestrap)
+white_test(modelo_3)
+```
+
+
+```{r}
+modelo_4 <- ivreg(log(ingreso)~ educ | personas_por_amb + educ_madre  , data = eph)
+
+```
+
+```{r}
+summary(modelo_4)
+```
+
+```{r}
+plot(modelo_4)
+```
+
+
 ## 5) Comparación de modelos
 
 ```{r}
@@ -344,7 +364,7 @@ library(broom)
 ```
 
 ```{r}
-modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3)
+modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3, MC2E_3= modelo_4)
 
 ```
 

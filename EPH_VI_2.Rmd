@@ -32,7 +32,7 @@ eph_hogares %>% head(5)
 
 ```{r}
 eph_individual<- eph_individual %>% select(CODUSU, NRO_HOGAR, CH03, PP08D1, CH06, 
-                                           CH10, CH13, CH12, CH14)
+                                           CH10, CH13, CH12, CH14, CH04, COMPONENTE)
 ```
 
 CODUSU: Código para distinguir viviendas, permite aparearlas con Hogares y Personas. Además permite hacer el
@@ -54,6 +54,7 @@ CH13: ¿Finalizó ese nivel?
 
 CH14: ¿Cuál fue el último año que aprobó?
 
+COMPONENTE: número de orden que se asigna a las personas que conforman cada hogar de la vivienda.
 
 ```{r}
 # AÑOS DE EDUCACIÓN 
@@ -127,7 +128,7 @@ eph_individual <- eph_individual %>%
   )) 
  
 # Universitario 
-eph_individual <- eph_individual %>% 
+eph_individual <- eph_individual %>%   
   mutate(educacion = case_when( 
     CH13 == 2 & CH12 == 7 & CH14 == 0 ~ 13, 
     CH13 == 2 & CH12 == 7 & CH14 == 1 ~ 14, 
@@ -171,17 +172,18 @@ eph_individual<- eph_individual %>% filter(!is.na(educacion))
 ```{r}
 eph_hogares<- eph_hogares %>% select(CODUSU, NRO_HOGAR, IV2, IX_TOT) %>% mutate(personas_por_amb= IX_TOT/IV2)
 ```
+
 IV2:ambientes que tiene la vivienda. 
 
 IX_TOT:cantidad de miembros del hogar. 
 
 ```{r}
-eph_cons<- eph_individual %>% left_join(., eph_hogares, by= c("CODUSU", "NRO_HOGAR"))
+eph_cons<- left_join(eph_individual, eph_hogares, by= c("CODUSU", "NRO_HOGAR"))
 ```
 
 
 ```{r}
-eph_padre<- eph_cons %>% filter(CH03== 06) 
+eph_padre<- eph_cons %>% filter(CH03== 06 & CH04== 1) 
 ```
 
 
@@ -191,7 +193,7 @@ eph_hijo<- eph_cons %>% filter(CH03== 03 & PP08D1> 0)
 
 
 ```{r}
-eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0)
+eph_jefe<- eph_cons %>% filter(CH03== 01 & PP08D1> 0 & CH04== 1 )
 ```
 
 
@@ -221,15 +223,30 @@ eph<- eph %>% mutate(educ_padre= educacion.y + educacion)
 ```
 
 ```{r}
-eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_padre) 
+eph<- eph %>% select(CODUSU, NRO_HOGAR, PP08D1.x, personas_por_amb.x, educacion.x, educ_padre, COMPONENTE.x) 
 ```
 
 ```{r}
-eph<- eph %>% rename(ingreso= PP08D1.x) %>% rename(personas_por_amb= personas_por_amb.x) %>% rename (educ= educacion.x)
+eph<- eph %>% rename(ingreso= PP08D1.x) %>% rename(personas_por_amb= personas_por_amb.x) %>% rename (educ= educacion.x) %>% rename(COMPONENTE= COMPONENTE.x)
+```
+
+## 2) Divido en train y test 
+
+
+```{r}
+set.seed(1)
+sample <- sample(c(TRUE, FALSE), nrow(eph), replace=TRUE, prob=c(0.7,0.3))
+eph_train  <- eph[sample, ]
+eph_test   <- eph[!sample, ]
+
+```
+
+```{r}
+eph<- eph_train
 ```
 
 
-## 2) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
+## 3) Modelo 1: regresión lineal simple con MCO. El logaritmo del ingreso como variable dependiente y los años de educación como única variable regresora. 
 
 ```{r}
 hist(eph$ingreso)
@@ -253,8 +270,30 @@ summary(modelo_1)
 plot(modelo_1)
 ```
 
+## 4.1) Modelo 2.1: regresión con la educación de la padre como variable instrumental. MC2E en forma manual. 
 
-## 3) Modelo 2: regresión con la educación del padre como variable instrumental. MC2E. 
+```{r}
+modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
+```
+
+```{r}
+summary(modelo_2_paso_1)
+```
+
+```{r}
+educ_predichos<- predict(modelo_2_paso_1)
+```
+
+```{r}
+modelo_2_paso_2<- lm(log(ingreso) ~ educ_predichos, data= eph)
+```
+
+```{r}
+summary(modelo_2_paso_2)
+```
+
+
+## 4) Modelo 2: regresión con la educación de la padre como variable instrumental. MC2E. 
 
 ```{r}
 hist(eph$educ)
@@ -288,30 +327,9 @@ summary(modelo_2)
 plot(modelo_2)
 ```
 
-## 3.1) Modelo 2.1: regresión con la educación del padre como variable instrumental. MC2E en forma manual. 
-
-```{r}
-modelo_2_paso_1<- lm(educ~ educ_padre, data=eph)
-```
-
-```{r}
-summary(modelo_2_paso_1)
-```
-
-```{r}
-educ_predichos<- predict(modelo_2_paso_1)
-```
-
-```{r}
-modelo_2_paso_2<- lm(log(ingreso) ~ valores_predichos, data= eph)
-```
-
-```{r}
-summary(modelo_2_paso_2)
-```
 
 
-## 4) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
+## 5) Modelo 3: regresión con la cantidad de personas por ambiente del hogar como variable instrumental
 
 ```{r}
 hist(eph$personas_por_amb)
@@ -337,19 +355,35 @@ summary(modelo_3)
 plot(modelo_3)
 ```
 
-## 5) Comparación de modelos
+
+```{r}
+modelo_4 <- ivreg(log(ingreso)~ educ | personas_por_amb + educ_padre  , data = eph)
+
+```
+
+```{r}
+summary(modelo_4)
+```
+
+```{r}
+plot(modelo_4)
+```
+
+
+## 6) Comparación de modelos
 
 ```{r}
 library(broom)
 ```
 
 ```{r}
-modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3)
+modelos<- list(MCO= modelo_1, MC2E_1= modelo_2, MC2E_2= modelo_3, MC2E_3= modelo_4)
 
 ```
-
 
 ```{r}
 map_df(modelos, tidy, .id= "modelo")
 
 ```
+
+
